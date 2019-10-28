@@ -58,24 +58,52 @@ end
 
 
 class GridWindow < Curses::Window
-  attr_reader :grid, :grid_x, :grid_y
+  attr_reader :grid, :grid_anchor_x, :grid_anchor_y
+  attr_accessor :cur_x, :cur_y
   BOX_VERT_CHAR = '|'
   BOX_HORIZ_CHAR = '-'
   BOX_CORNER_CHAR = '*'
 
   def initialize(height, width, top, left, grid)
     super(height, width, top, left)
+    self.keypad = true
     @grid = grid
-    @grid_x = 0
-    @grid_y = 0
+    @grid_anchor_x = 0
+    @grid_anchor_y = 0
+    @cur_x = grid_width / 2
+    @cur_y = grid_height / 2
   end
 
-  def grid_x=(x)
-    @grid_x = x unless x < 0 or x > @grid.dimensions[:width] - maxx + 2
+  def grid_anchor_x=(x)
+    @grid_anchor_x = x unless x < 0 or x > @grid.dimensions[:width] - maxx + 2
   end
 
-  def grid_y=(y)
-    @grid_y = y unless y < 0 or y > @grid.dimensions[:height] - maxy + 2
+  def grid_anchor_y=(y)
+    @grid_anchor_y = y unless y < 0 or y > @grid.dimensions[:height] - maxy + 2
+  end
+
+  def cur_x=(x)
+    if x < 0 or x > grid_width
+      self.grid_anchor_x -= @cur_x - x
+    else
+      @cur_x = x
+    end
+  end
+
+  def cur_y=(y)
+    if y < 0 or y > grid_width
+      self.grid_anchor_y -= @cur_y - y
+    else
+      @cur_y = y
+    end
+  end
+
+  def grid_width
+    maxx - 3
+  end
+
+  def grid_height
+    maxy - 3
   end
 
   def draw_horiz_frame
@@ -84,28 +112,35 @@ class GridWindow < Curses::Window
     addch(BOX_CORNER_CHAR)
   end
 
+  def toggle_cell
+    x = @grid_anchor_x + @cur_x
+    y = @grid_anchor_y + @cur_y
+    @grid[y][x] = @grid[y][x] == CellState::ALIVE ? CellState::DEAD : CellState::ALIVE
+  end
+
   def draw
     clear
     draw_horiz_frame
 
-    grid[@grid_y..@grid_y + maxy - 3].each do |line|
+    @grid[@grid_anchor_y..@grid_anchor_y + grid_height].each do |line|
       addch(BOX_VERT_CHAR)
-      line[@grid_x..@grid_x + maxx - 3].each do |cell|
+      line[@grid_anchor_x..@grid_anchor_x + grid_width].each do |cell|
         addch(cell == CellState::ALIVE ? 'O' : 'X')
       end
       addch(BOX_VERT_CHAR)
     end
 
     draw_horiz_frame
+    setpos(cur_y + 1, cur_x + 1)
     refresh
   end
 end
 
 
 grid = GameOfLifeGrid.new([[0, 0, 0, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
-                           [0, 0, 1, 0, 0],
+                           [0, 0, 0, 0, 0],
+                           [0, 0, 0, 0, 0],
+                           [0, 0, 0, 0, 0],
                            [0, 0, 0, 0, 0]])
 
 Curses.init_screen
@@ -115,13 +150,23 @@ begin
   while ch = win.getch
     case ch
     when 'w'
-      win.grid_y -= 1
+      win.grid_anchor_y -= 1
     when 's'
-      win.grid_y += 1
+      win.grid_anchor_y += 1
     when 'a'
-      win.grid_x -= 1
+      win.grid_anchor_x -= 1
     when 'd'
-      win.grid_x += 1
+      win.grid_anchor_x += 1
+    when Curses::Key::UP
+      win.cur_y -= 1
+    when Curses::Key::DOWN
+      win.cur_y += 1
+    when Curses::Key::LEFT
+      win.cur_x -= 1
+    when Curses::Key::RIGHT
+      win.cur_x += 1
+    when ' '
+      win.toggle_cell
     when 'u'
       grid.advance
     end
