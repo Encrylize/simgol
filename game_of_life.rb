@@ -15,9 +15,11 @@ class GameOfLifeGrid
   attr_reader :grid, :dimensions
   def_delegators :@grid, :each, :[]
 
-  def initialize(start_grid)
-    @grid = start_grid
-    @dimensions = {:height => @grid.size(), :width => @grid[0].size()}
+  def initialize(height, width)
+    @dimensions = {:height => height, :width => width}
+    @grid = Array.new(dimensions[:height]) do
+      Array.new(dimensions[:width], CellState::DEAD)
+    end
   end
 
   def advance
@@ -134,44 +136,45 @@ class GridWindow < Curses::Window
     setpos(cur_y + 1, cur_x + 1)
     refresh
   end
+
+  def loop
+    draw
+    while ch = getch
+      case ch
+      when 'w'
+        self.grid_anchor_y -= 1
+      when 's'
+        self.grid_anchor_y += 1
+      when 'a'
+        self.grid_anchor_x -= 1
+      when 'd'
+        self.grid_anchor_x += 1
+      when Curses::Key::UP
+        self.cur_y -= 1
+      when Curses::Key::DOWN
+        self.cur_y += 1
+      when Curses::Key::LEFT
+        self.cur_x -= 1
+      when Curses::Key::RIGHT
+        self.cur_x += 1
+      when ' '
+        toggle_cell
+      when 'u'
+        grid.advance
+      end
+      draw
+    end
+  end
 end
 
 
-grid = GameOfLifeGrid.new([[0, 0, 0, 0, 0],
-                           [0, 0, 0, 0, 0],
-                           [0, 0, 0, 0, 0],
-                           [0, 0, 0, 0, 0],
-                           [0, 0, 0, 0, 0]])
+grid = GameOfLifeGrid.new(1000, 1000)
 
 Curses.init_screen
 begin
-  win = GridWindow.new(5, 5, 0, 0, grid)
-  win.draw
-  while ch = win.getch
-    case ch
-    when 'w'
-      win.grid_anchor_y -= 1
-    when 's'
-      win.grid_anchor_y += 1
-    when 'a'
-      win.grid_anchor_x -= 1
-    when 'd'
-      win.grid_anchor_x += 1
-    when Curses::Key::UP
-      win.cur_y -= 1
-    when Curses::Key::DOWN
-      win.cur_y += 1
-    when Curses::Key::LEFT
-      win.cur_x -= 1
-    when Curses::Key::RIGHT
-      win.cur_x += 1
-    when ' '
-      win.toggle_cell
-    when 'u'
-      grid.advance
-    end
-    win.draw
-  end
+  stdscr = Curses::stdscr
+  win = GridWindow.new(stdscr.maxy, stdscr.maxx, 0, 0, grid)
+  win.loop
 ensure
   Curses.close_screen
 end
