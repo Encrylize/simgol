@@ -95,7 +95,7 @@ class GridWindow < Curses::Window
   end
 
   def cur_y=(y)
-    if y < 0 or y > grid_width
+    if y < 0 or y > grid_height
       self.grid_anchor_y -= @cur_y - y
     else
       @cur_y = y
