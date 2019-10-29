@@ -65,6 +65,8 @@ class GridWindow < Curses::Window
   BOX_VERT_CHAR = '|'
   BOX_HORIZ_CHAR = '-'
   BOX_CORNER_CHAR = '*'
+  DEAD_CELL_CHAR = '.'
+  ALIVE_CELL_CHAR = '#'
 
   def initialize(height, width, top, left, grid)
     super(height, width, top, left)
@@ -127,7 +129,7 @@ class GridWindow < Curses::Window
     @grid[@grid_anchor_y..@grid_anchor_y + grid_height].each do |line|
       addch(BOX_VERT_CHAR)
       line[@grid_anchor_x..@grid_anchor_x + grid_width].each do |cell|
-        addch(cell == CellState::ALIVE ? 'O' : 'X')
+        addch(cell == CellState::ALIVE ? ALIVE_CELL_CHAR : DEAD_CELL_CHAR)
       end
       addch(BOX_VERT_CHAR)
     end
@@ -168,12 +170,13 @@ class GridWindow < Curses::Window
 end
 
 
-grid = GameOfLifeGrid.new(1000, 1000)
+grid = GameOfLifeGrid.new(300, 300)
 
 Curses.init_screen
+Curses.noecho
 begin
   stdscr = Curses::stdscr
-  win = GridWindow.new(stdscr.maxy, stdscr.maxx, 0, 0, grid)
+  win = GridWindow.new(stdscr.maxy / 2, stdscr.maxx / 2, 0, 0, grid)
   win.loop
 ensure
   Curses.close_screen
