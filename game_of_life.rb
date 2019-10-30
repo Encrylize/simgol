@@ -96,15 +96,9 @@ class GridWindow < Curses::Window
 
     [:x, :y].each do |sym|
       val = @cursor.get(sym) + delta.get(sym)
-      if val < 0
-        anchor_delta.set(sym, val)
-        @cursor.set(sym, 0)
-      elsif val > (max = @display_dimensions.get(sym))
-        anchor_delta.set(sym, val - max)
-        @cursor.set(sym, max)
-      else
-        @cursor.set(sym, val)
-      end
+      clamped_val = val.clamp(0, @display_dimensions.get(sym))
+      anchor_delta.set(sym, val - clamped_val)
+      @cursor.set(sym, clamped_val)
     end
 
     move_anchor(anchor_delta.x, anchor_delta.y)
@@ -116,7 +110,7 @@ class GridWindow < Curses::Window
     [:x, :y].each do |sym|
       val = @grid_anchor.get(sym) + delta.get(sym)
       max_val = @grid.dimensions.get(sym) - @display_dimensions.get(sym) - 1
-      @grid_anchor.set(sym, val) unless (val < 0 or val > max_val)
+      @grid_anchor.set(sym, val.clamp(0, max_val))
     end
   end
 
