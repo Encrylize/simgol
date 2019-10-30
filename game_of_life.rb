@@ -70,21 +70,24 @@ end
 
 
 class GridWindow < Curses::Window
-  attr_reader :grid, :grid_anchor, :cursor, :display_dimensions
+  attr_reader :grid, :grid_anchor, :cursor, :display_dimensions, :playing
 
   BOX_VERT_CHAR = '|'
   BOX_HORIZ_CHAR = '-'
   BOX_CORNER_CHAR = '*'
   DEAD_CELL_CHAR = '.'
   ALIVE_CELL_CHAR = '#'
+  TIME_BETWEEN_UPDATES_S = 0.1
 
   def initialize(width, height, top, left, grid)
     super(height, width, top, left)
     self.keypad = true
+    self.timeout = 0
     @grid = grid
     @grid_anchor = Vector2.new(0, 0)
     @display_dimensions = Vector2.new(maxx - 3, maxy - 3)
     @cursor = Vector2.new(display_dimensions.x / 2, display_dimensions.y / 2)
+    @playing = false
   end
 
   def move_cursor(x, y)
@@ -146,32 +149,52 @@ class GridWindow < Curses::Window
     refresh
   end
 
+  def handle_input(ch)
+    case ch
+    when 'w'
+      move_anchor(0, -1)
+    when 's'
+      move_anchor(0, 1)
+    when 'a'
+      move_anchor(-1, 0)
+    when 'd'
+      move_anchor(1, 0)
+    when Curses::Key::UP
+      move_cursor(0, -1)
+    when Curses::Key::DOWN
+      move_cursor(0, 1)
+    when Curses::Key::LEFT
+      move_cursor(-1, 0)
+    when Curses::Key::RIGHT
+      move_cursor(1, 0)
+    when ' '
+      toggle_cell
+    when 'p'
+      @playing = !@playing
+    end
+  end
+
   def loop
     draw
-    while ch = getch
-      case ch
-      when 'w'
-        move_anchor(0, -1)
-      when 's'
-        move_anchor(0, 1)
-      when 'a'
-        move_anchor(-1, 0)
-      when 'd'
-        move_anchor(1, 0)
-      when Curses::Key::UP
-        move_cursor(0, -1)
-      when Curses::Key::DOWN
-        move_cursor(0, 1)
-      when Curses::Key::LEFT
-        move_cursor(-1, 0)
-      when Curses::Key::RIGHT
-        move_cursor(1, 0)
-      when ' '
-        toggle_cell
-      when 'u'
-        grid.advance
+
+    last_update_time = 0
+    while true
+      updated = false
+
+      while ch = get_char do
+        return if ch == 'q'
+        handle_input ch
+        updated = true
       end
-      draw
+
+      time_since_update = Time.now - last_update_time
+      if @playing and time_since_update.to_f > TIME_BETWEEN_UPDATES_S
+        grid.advance
+        last_update_time = Time.now
+        updated = true
+      end
+
+      draw if updated
     end
   end
 end
@@ -181,6 +204,7 @@ grid = GameOfLifeGrid.new(300, 300)
 
 Curses.init_screen
 Curses.noecho
+Curses.cbreak
 begin
   stdscr = Curses::stdscr
   win = GridWindow.new(stdscr.maxx / 2, stdscr.maxy / 2, 0, 0, grid)
