@@ -9,12 +9,16 @@ end
 
 
 Vector2 = Struct.new(:x, :y) do
-  def get(sym)
-    send sym
+  def +(other)
+    Vector2.new(x + other.x, y + other.y)
   end
 
-  def set(sym, val)
-    send "#{sym}=", val
+  def -(other)
+    Vector2.new(x - other.x, y - other.y)
+  end
+
+  def clamp(min, max)
+    Vector2.new(x.clamp(min.x, max.x), y.clamp(min.y, max.y))
   end
 end
 
@@ -92,26 +96,17 @@ class GridWindow < Curses::Window
 
   def move_cursor(x, y)
     delta = Vector2.new(x, y)
-    anchor_delta = Vector2.new(0, 0)
-
-    [:x, :y].each do |sym|
-      val = @cursor.get(sym) + delta.get(sym)
-      clamped_val = val.clamp(0, @display_dimensions.get(sym))
-      anchor_delta.set(sym, val - clamped_val)
-      @cursor.set(sym, clamped_val)
-    end
-
+    new_pos = cursor + delta
+    @cursor = new_pos.clamp(Vector2.new(0, 0), @display_dimensions)
+    anchor_delta = new_pos - @cursor
     move_anchor(anchor_delta.x, anchor_delta.y)
   end
 
   def move_anchor(x, y)
     delta = Vector2.new(x, y)
-
-    [:x, :y].each do |sym|
-      val = @grid_anchor.get(sym) + delta.get(sym)
-      max_val = @grid.dimensions.get(sym) - @display_dimensions.get(sym) - 1
-      @grid_anchor.set(sym, val.clamp(0, max_val))
-    end
+    new_pos = @grid_anchor + delta
+    max = @grid.dimensions - @display_dimensions - Vector2.new(1, 1)
+    @grid_anchor = new_pos.clamp(Vector2.new(0, 0), max)
   end
 
   def draw_horiz_frame
@@ -121,9 +116,9 @@ class GridWindow < Curses::Window
   end
 
   def toggle_cell
-    x = @grid_anchor.x + @cursor.x
-    y = @grid_anchor.y + @cursor.y
-    @grid[y][x] = @grid[y][x] == CellState::ALIVE ? CellState::DEAD : CellState::ALIVE
+    pos = @grid_anchor + @cursor
+    @grid[pos.y][pos.x] =
+      (@grid[pos.y][pos.x] == CellState::ALIVE ? CellState::DEAD : CellState::ALIVE)
   end
 
   def draw
