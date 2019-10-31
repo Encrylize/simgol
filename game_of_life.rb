@@ -43,9 +43,7 @@ class GameOfLifeGrid
     new_grid = new_grid(@dimensions)
     new_grid.each_with_index do |line, y|
       line.each_with_index do |cell, x|
-        neighborhood = get_neighborhood(x, y)
-        sum = neighborhood.inject(:+)
-        case sum
+        case neighborhood_sum(x, y)
         when 3
           new_grid[y][x] = CellState::ALIVE
         when 4
@@ -59,16 +57,20 @@ class GameOfLifeGrid
     @grid = new_grid
   end
 
-  def get_neighborhood(x, y)
+  def get(pos)
+    @grid.fetch(pos.y, []).fetch(pos.x, CellState::DEAD)
+  end
+
+  def set(pos, state)
+    @grid[pos.y][pos.x] = state
+  end
+
+  def neighborhood_sum(x, y)
     neighborhood = []
-
     (-1..1).each do |y_i|
-      (-1..1).each do |x_i|
-        neighborhood << @grid.fetch(y + y_i, []).fetch(x + x_i, CellState::DEAD)
-      end
+      (-1..1).each {|x_i| neighborhood << get(Vector2.new(x + x_i, y + y_i))}
     end
-
-    return neighborhood
+    neighborhood.sum
   end
 end
 
@@ -117,8 +119,8 @@ class GridWindow < Curses::Window
 
   def toggle_cell
     pos = @grid_anchor + @cursor
-    @grid[pos.y][pos.x] =
-      (@grid[pos.y][pos.x] == CellState::ALIVE ? CellState::DEAD : CellState::ALIVE)
+    new_state = @grid.get(pos) == CellState::ALIVE ? CellState::DEAD : CellState::ALIVE
+    @grid.set(pos, new_state)
   end
 
   def draw
