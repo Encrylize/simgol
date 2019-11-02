@@ -1,5 +1,4 @@
 require 'curses'
-require 'forwardable'
 
 
 module CellState
@@ -24,11 +23,7 @@ end
 
 
 class GameOfLifeGrid
-  include Enumerable
-  extend Forwardable
-
-  attr_reader :grid, :dimensions
-  def_delegators :@grid, :each, :[]
+  attr_reader :dimensions
 
   def initialize(width, height)
     @dimensions = Vector2.new(width, height)
@@ -42,7 +37,7 @@ class GameOfLifeGrid
   def advance
     new_grid = new_grid(@dimensions)
     new_grid.each_with_index do |line, y|
-      line.each_with_index do |cell, x|
+      line.length.times do |x|
         case neighborhood_sum(x, y)
         when 3
           new_grid[y][x] = CellState::ALIVE
@@ -76,8 +71,6 @@ end
 
 
 class GridWindow < Curses::Window
-  attr_reader :grid, :grid_anchor, :cursor, :display_dimensions, :playing
-
   BOX_VERT_CHAR = '|'
   BOX_HORIZ_CHAR = '-'
   BOX_CORNER_CHAR = '*'
@@ -92,13 +85,13 @@ class GridWindow < Curses::Window
     @grid = grid
     @grid_anchor = Vector2.new(0, 0)
     @display_dimensions = Vector2.new(maxx - 3, maxy - 3)
-    @cursor = Vector2.new(display_dimensions.x / 2, display_dimensions.y / 2)
+    @cursor = Vector2.new(@display_dimensions.x / 2, @display_dimensions.y / 2)
     @playing = false
   end
 
   def move_cursor(x, y)
     delta = Vector2.new(x, y)
-    new_pos = cursor + delta
+    new_pos = @cursor + delta
     @cursor = new_pos.clamp(Vector2.new(0, 0), @display_dimensions)
     anchor_delta = new_pos - @cursor
     move_anchor(anchor_delta.x, anchor_delta.y)
@@ -127,9 +120,10 @@ class GridWindow < Curses::Window
     clear
     draw_horiz_frame
 
-    @grid[@grid_anchor.y..@grid_anchor.y + @display_dimensions.y].each do |line|
+    (@grid_anchor.y..@grid_anchor.y + @display_dimensions.y).each do |y|
       addch(BOX_VERT_CHAR)
-      line[@grid_anchor.x..@grid_anchor.x + @display_dimensions.x].each do |cell|
+      (@grid_anchor.x..@grid_anchor.x + @display_dimensions.x).each do |x|
+        cell = @grid.get(Vector2.new(x, y))
         addch(cell == CellState::ALIVE ? ALIVE_CELL_CHAR : DEAD_CELL_CHAR)
       end
       addch(BOX_VERT_CHAR)
@@ -180,7 +174,7 @@ class GridWindow < Curses::Window
 
       time_since_update = Time.now - last_update_time
       if @playing and time_since_update.to_f > TIME_BETWEEN_UPDATES_S
-        grid.advance
+        @grid.advance
         last_update_time = Time.now
         updated = true
       end
