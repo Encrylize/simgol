@@ -1,4 +1,5 @@
 require 'curses'
+require 'matrix'
 
 
 module CellState
@@ -7,17 +8,21 @@ module CellState
 end
 
 
-Vector2 = Struct.new(:x, :y) do
-  def +(other)
-    Vector2.new(x + other.x, y + other.y)
+class Vector2 < Vector
+  def self::[](x, y)
+    super(x, y)
   end
 
-  def -(other)
-    Vector2.new(x - other.x, y - other.y)
+  def x
+    element(0)
+  end
+
+  def y
+    element(1)
   end
 
   def clamp(min, max)
-    Vector2.new(x.clamp(min.x, max.x), y.clamp(min.y, max.y))
+    Vector2[x.clamp(min.x, max.x), y.clamp(min.y, max.y)]
   end
 end
 
@@ -26,7 +31,7 @@ class GameOfLifeGrid
   attr_reader :dimensions
 
   def initialize(width, height)
-    @dimensions = Vector2.new(width, height)
+    @dimensions = Vector2[width, height]
     @grid = new_grid(@dimensions)
   end
 
@@ -63,7 +68,7 @@ class GameOfLifeGrid
   def neighborhood_sum(x, y)
     neighborhood = []
     (-1..1).each do |y_i|
-      (-1..1).each {|x_i| neighborhood << get(Vector2.new(x + x_i, y + y_i))}
+      (-1..1).each {|x_i| neighborhood << get(Vector2[x + x_i, y + y_i])}
     end
     neighborhood.sum
   end
@@ -83,25 +88,25 @@ class GridWindow < Curses::Window
     self.keypad = true
     self.timeout = 0
     @grid = grid
-    @grid_anchor = Vector2.new(0, 0)
-    @display_dimensions = Vector2.new(maxx - 3, maxy - 3)
-    @cursor = Vector2.new(@display_dimensions.x / 2, @display_dimensions.y / 2)
+    @grid_anchor = Vector2[0, 0]
+    @display_dimensions = Vector2[maxx - 3, maxy - 3]
+    @cursor = @display_dimensions / 2
     @playing = false
   end
 
   def move_cursor(x, y)
-    delta = Vector2.new(x, y)
+    delta = Vector2[x, y]
     new_pos = @cursor + delta
-    @cursor = new_pos.clamp(Vector2.new(0, 0), @display_dimensions)
+    @cursor = new_pos.clamp(Vector2[0, 0], @display_dimensions)
     anchor_delta = new_pos - @cursor
     move_anchor(anchor_delta.x, anchor_delta.y)
   end
 
   def move_anchor(x, y)
-    delta = Vector2.new(x, y)
+    delta = Vector2[x, y]
     new_pos = @grid_anchor + delta
-    max = @grid.dimensions - @display_dimensions - Vector2.new(1, 1)
-    @grid_anchor = new_pos.clamp(Vector2.new(0, 0), max)
+    max = @grid.dimensions - @display_dimensions - Vector2[1, 1]
+    @grid_anchor = new_pos.clamp(Vector2[0, 0], max)
   end
 
   def draw_horiz_frame
@@ -123,7 +128,7 @@ class GridWindow < Curses::Window
     (@grid_anchor.y..@grid_anchor.y + @display_dimensions.y).each do |y|
       addch(BOX_VERT_CHAR)
       (@grid_anchor.x..@grid_anchor.x + @display_dimensions.x).each do |x|
-        cell = @grid.get(Vector2.new(x, y))
+        cell = @grid.get(Vector2[x, y])
         addch(cell == CellState::ALIVE ? ALIVE_CELL_CHAR : DEAD_CELL_CHAR)
       end
       addch(BOX_VERT_CHAR)
